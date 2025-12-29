@@ -22,9 +22,6 @@ app.use(express.json());
 app.use(cookieParser());
 
 connectDB();
-app.get("/",(req,res)=>{
-    res.send("running");
-});
 
 app.use("/api/auth/",authRoutes);
 app.use("/api/messages/",messageRoutes);
@@ -35,8 +32,11 @@ if(process.env.NODE_ENV==="production"){
     app.get("/{*path}",(req,res)=>{
         res.sendFile(path.join(__dirname,"../frontend","dist","index.html"));
     });
+}else {
+    app.get("/",(req,res)=>{
+    res.send("Backend working, frontend not found..");
+});
 }
-
 
 server.listen(process.env.PORT,()=>{
     console.log(`server listening on PORT: ${process.env.PORT}`)
