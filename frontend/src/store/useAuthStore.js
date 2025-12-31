@@ -3,7 +3,7 @@ import {axiosInstance} from "../lib/axios.js";
 import toast from "react-hot-toast";
 import {io} from "socket.io-client";
 
-const BASE_URL= import.meta.env.MODE === "development"? "http://localhost:5001" : "/" ;
+const BASE_URL= import.meta.env.MODE === "development"? "http://localhost:5001" : "https://echo-aixf.onrender.com/" ;
 
 export const useAuthStore=create((set, get)=>({
     authUser:null,
@@ -81,13 +81,14 @@ connectSocket: () => {
   // If no user or socket is already alive and connected, do nothing
   if (!authUser || (socket && socket.connected)) return;
 
+
   const newSocket = io(BASE_URL, {
-    query: {
-      userId: authUser._id,
-    },
-    // Useful for preventing automatic reconnection loops in Dev
-    reconnectionAttempts: 5, 
-  });
+  query: { userId: authUser._id },
+  transports: ["polling", "websocket"], 
+  secure: true, 
+  reconnection: true,
+  reconnectionAttempts: 10,
+});
 
   // Explicitly connect
   newSocket.connect();

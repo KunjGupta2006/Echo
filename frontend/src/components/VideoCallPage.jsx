@@ -38,7 +38,9 @@ const VideoCallPage = () => {
     if (peerConnection.current) return;
 
     peerConnection.current = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        { urls: "stun:stun1.l.google.com:19302" }]
     });
 
     peerConnection.current.onicecandidate = (event) => {
@@ -72,7 +74,15 @@ const VideoCallPage = () => {
 
     const enableStream = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: "user" // for the selfie camera
+        }, 
+        audio: true 
+      });
+        // const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
         setLocalStream(stream);
         streamRef.current = stream;
         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
