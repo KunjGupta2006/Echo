@@ -31,20 +31,20 @@ const Sidebar = () => {
   if (isUsersLoading) return <SidebarSkeleton />;
 
   return (
-    <aside className="h-full w-20 lg:w-72 border-r border-base-300 flex flex-col transition-all duration-200 bg-base-100">
+    <aside className="h-full w-full lg:w-72 border-r border-base-300 flex flex-col transition-all duration-200 bg-base-100">
       {/* --- HEADER SECTION --- */}
       <div className="border-b border-base-300 w-full p-5 bg-base-100/50 backdrop-blur-sm sticky top-0 z-10">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-primary/10 rounded-lg text-primary">
-            <Users size={24} />
+          <div className="p-2 hidden md:block bg-primary/10 rounded-lg text-primary">
+            <Users size={22} />
           </div>
-          <span className="font-bold text-lg hidden lg:block tracking-tight text-base-content">
+          <span className="font-bold text-lg  tracking-tight text-base-content">
             Contacts
           </span>
         </div>
 
         {/* Search Bar */}
-        <div className="mt-4 hidden lg:relative lg:block">
+        <div className="mt-4 relative lg:block">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-base-content/40" size={16} />
           <input
             type="text"
@@ -56,7 +56,7 @@ const Sidebar = () => {
         </div>
 
         {/* Online Filter Toggle */}
-        <div className="mt-4 hidden lg:flex items-center justify-between">
+        <div className="mt-4 flex items-center justify-between">
           <label className="flex items-center gap-3 cursor-pointer group">
             <input
               type="checkbox"
@@ -81,8 +81,8 @@ const Sidebar = () => {
             key={user._id}
             onClick={() => setSelectedUser(user)}
             className={`
-              w-full p-4 flex items-center gap-4 transition-all duration-200
-              hover:bg-base-200 group relative
+              w-full p-8 flex items-center gap-6 transition-all duration-200
+              hover:bg-base-200 group relative btn btn-outline btn-primary
               ${selectedUser?._id === user._id ? "bg-base-200" : ""}
             `}
           >
@@ -109,13 +109,13 @@ const Sidebar = () => {
             </div>
 
             {/* User Details - Only visible on Large Screens */}
-            <div className="hidden lg:block text-left min-w-0 flex-1">
+            <div className="block text-left flex-1">
               <div className="font-semibold truncate text-base-content">
-                {user.fullName}
+                {user.username}
               </div>
               
               <div className="text-md font-medium text-base-content/50 truncate">
-                @{user.username || user.fullName.toLowerCase().replace(/\s/g, '_')}
+                @{user.username || user.username.toLowerCase().replace(/\s/g, '_')}
               </div>
             </div>
           </button>
