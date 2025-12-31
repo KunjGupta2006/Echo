@@ -67,3 +67,15 @@ export const sendMessage=async(req,res)=>{
         res.status(500).json({message:"Internal server error"});
     }
 };
+export const videoCall=async (req,res)=>{
+    try{
+        const {id:usertocall}=req.params;
+        const myId=req.user._id;
+        const callData={myId,usertocall};
+        res.status(200).json({callData});
+
+    }catch(error){
+        console.log("error in video calling controller--->",error.message);
+        res.status(500).json({message:"iNTERNAL SERVER ERROR"});
+    }
+};

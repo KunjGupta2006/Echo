@@ -6,6 +6,7 @@ import {app,server} from "../config/socket.js";
 
 import authRoutes from "../routes/authroutes.js";
 import messageRoutes from "../routes/messageroutes.js";
+import vcallroutes from "../routes/vcallroutes.js";
 
 import path from "path";
 
@@ -25,6 +26,7 @@ connectDB();
 
 app.use("/api/auth/",authRoutes);
 app.use("/api/messages/",messageRoutes);
+app.use("/api/vcall/",vcallroutes);
 
 if(process.env.NODE_ENV==="production"){
     app.use(express.static(path.join(__dirname,"../frontend/dist")));

@@ -31,6 +31,50 @@ io.on('connection',(socket)=>{
         delete userSocketMap[userId];
         io.emit("getOnlineUsers",Object.keys(userSocketMap));
     });
+        
+    socket.on('join-room', (room) => {
+        socket.join(room);
+        console.log(`User ${socket.id} joined room ${room}`);
+    });
+
+    // Relay Offer
+    socket.on('offer', (offer, room) => {
+        socket.to(room).emit('offer', offer, socket.id);
+    });
+
+    // Relay Answer
+    socket.on('answer', (answer, room) => {
+        socket.to(room).emit('answer', answer);
+    });
+    //call notification
+    socket.on("request-video-call", ({ to, from }) => {
+        const receiverSocketId = userSocketMap[to]; // Direct check
+        console.log("Call Request to User:", to);
+        console.log("Found Socket ID:", receiverSocketId);
+
+        if (receiverSocketId) {
+            io.to(receiverSocketId).emit("incoming-video-call", { from });
+        } else {
+            console.log("CRITICAL: Receiver socket not found in map!");
+        }
+    });
+
+    // Relay ICE Candidates
+    socket.on('ice-candidate', (candidate, room) => {
+        socket.to(room).emit('ice-candidate', candidate);
+    });
+
+    socket.on('end-call', (room) => {
+        socket.to(room).emit('end-call');
+        socket.leave(room);
+    });
+    socket.on('ready', (room) => {
+        socket.to(room).emit('ready');
+    });
+    socket.on("reject-call", (room) => {
+        socket.to(room).emit("call-rejected");
+    });
+
 });
 
 export  {app,io,server};

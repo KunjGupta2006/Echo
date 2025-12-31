@@ -75,22 +75,29 @@ export const useAuthStore=create((set, get)=>({
             set({isUpdatingProfile:false});
         }
     },
-    connectSocket: ()=>{
-        const {authUser}=get();
-        if(!authUser || get().socket?.connected )return;
-        const socket=io(BASE_URL,{
-            query:{
-                userId:authUser._id,
-            }
-        });
-        socket.connect();
-        set({socket:socket});
+connectSocket: () => {
+  const { authUser, socket } = get();
+  
+  // If no user or socket is already alive and connected, do nothing
+  if (!authUser || (socket && socket.connected)) return;
 
-        socket.on("getOnlineUsers",(userIds)=>{
-            set({onLineUsers:userIds});
-        })
-
+  const newSocket = io(BASE_URL, {
+    query: {
+      userId: authUser._id,
     },
+    // Useful for preventing automatic reconnection loops in Dev
+    reconnectionAttempts: 5, 
+  });
+
+  // Explicitly connect
+  newSocket.connect();
+
+  newSocket.on("getOnlineUsers", (userIds) => {
+    set({ onLineUsers: userIds });
+  });
+
+  set({ socket: newSocket });
+},
     disconnectSocket: ()=>{
         if(get().socket?.connected) {get().socket.disconnect(); set({socket:null})}
     }
