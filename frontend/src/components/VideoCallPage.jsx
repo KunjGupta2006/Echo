@@ -13,8 +13,6 @@ const VideoCallPage = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
   const [localStream, setLocalStream] = useState(null);
-  const [mediaStarted, setMediaStarted] = useState(false);
-
 
   const localVideoRef = useRef(null);
   const remoteVideoRef = useRef(null);
@@ -47,7 +45,7 @@ const VideoCallPage = () => {
           urls: "turn:relay.metered.ca:80",
           username: "open",
           credential: "open"
-        },
+        }
       ]
     });
 
@@ -77,71 +75,31 @@ const VideoCallPage = () => {
     socket.emit('offer', offer, roomId);
   };
 
-//   useEffect(() => {
-//     if (!selectedUser) { navigate("/"); return; }
+  useEffect(() => {
+    if (!selectedUser) { navigate("/"); return; }
 
-//     const enableStream = async () => {
-//       try {
-//         const stream = await navigator.mediaDevices.getUserMedia({ 
-//         video: {
-//           width: { ideal: 1280 },
-//           height: { ideal: 720 },
-//           facingMode: "user" // for the selfie camera
-//         }, 
-//         audio: true 
-//       });
-//         // const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-//         setLocalStream(stream);
-//         streamRef.current = stream;
-//         stream.getVideoTracks().forEach(track => {
-//   track.enabled = true;
-// });
-//         if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-//       } catch (error) {
-//         console.error(error);
-//       }
-//     };
+    const enableStream = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: "user" // for the selfie camera
+        }, 
+        audio: true 
+      });
+        // const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
+        setLocalStream(stream);
+        streamRef.current = stream;
+        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
+      } catch (error) {
+        console.error(error);
+      }
+    };
 
-//     enableStream();
-//     return () => killMedia();
-//   }, [selectedUser]);
-
-const startMedia = async () => {
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: {
-        facingMode: "user",
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      },
-      audio: true
-    });
-
-    stream.getTracks().forEach(track => (track.enabled = true));
-
-    streamRef.current = stream;
-    setLocalStream(stream);
-
-    if (localVideoRef.current) {
-      localVideoRef.current.srcObject = stream;
-      await localVideoRef.current.play();
-    }
-
-    setMediaStarted(true);
-
-    // now tell the other peer you are ready
-    socket.emit("ready", roomId);
-
-  } catch (err) {
-    console.error("Failed to start media:", err);
-  }
-};
-
-useEffect(() => {
-  return () => {
-    killMedia();
-  };
-}, []);
+    enableStream();
+    return () => killMedia();
+  }, [selectedUser]);
 
   useEffect(() => {
     if (!localStream || !socket || !roomId) return;
@@ -234,16 +192,6 @@ useEffect(() => {
 
   return (
     <div className="flex flex-col absolute top-24 h-3/4 w-full bg-base-100 overflow-hidden">
-                {!mediaStarted && (
-            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/80">
-              <button
-                onClick={startMedia}
-                className="btn btn-primary btn-lg"
-              >
-                {location.state?.type === "receiver" ? "Accept Call" : "Start Call"}
-              </button>
-            </div>
-          )}
       <main className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 h-full overflow-hidden">
         <div className="relative bg-neutral rounded-2xl overflow-hidden h-full">
           <video ref={remoteVideoRef} className="w-full h-full object-cover bg-black" autoPlay playsInline />
