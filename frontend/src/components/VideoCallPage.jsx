@@ -41,6 +41,7 @@ const VideoCallPage = () => {
       iceServers: [
         { urls: "stun:stun.l.google.com:19302" },
         { urls: "stun:stun1.l.google.com:19302" },
+        { urls: "stun:global.stun.twilio.com:3478" }, 
         {
           urls: "turn:relay.metered.ca:80",
           username: "open",
@@ -58,6 +59,10 @@ const VideoCallPage = () => {
     peerConnection.current.ontrack = (event) => {
       if (remoteVideoRef.current) {
         remoteVideoRef.current.srcObject = event.streams[0];
+        // Android Fix: Force play when remote track arrives
+        remoteVideoRef.current.play().catch(e => {
+          console.log("Remote play blocked, user interaction needed", e);
+        });
       }
     };
   };
@@ -96,6 +101,16 @@ const VideoCallPage = () => {
       console.error(error);
     }
   };
+  useEffect(() => {
+  // Every time the video is toggled back ON and the ref becomes available
+  if (!isVideoOff && localStream && localVideoRef.current) {
+    localVideoRef.current.srcObject = localStream;
+    const playPromise = localVideoRef.current.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(error => console.log("Android auto-play prevented",error));
+    }
+  }
+}, [isVideoOff, localStream]);
 
   useEffect(() => {
     if (!selectedUser) { navigate("/"); return; }
@@ -111,9 +126,13 @@ const VideoCallPage = () => {
       });
     }
 
-    const offer = await peerConnection.current.createOffer();
-    await peerConnection.current.setLocalDescription(offer);
-    socket.emit('offer', offer, roomId);
+    try {
+        const offer = await peerConnection.current.createOffer();
+        await peerConnection.current.setLocalDescription(offer);
+        socket.emit('offer', offer, roomId);
+      } catch (err) {
+        console.error("Offer creation failed", err);
+      }
   };
 
   useEffect(() => {
@@ -146,10 +165,18 @@ const VideoCallPage = () => {
     });
 
     socket.on('ice-candidate', async (candidate) => {
-      if (candidate && peerConnection.current?.remoteDescription) {
+      if (candidate && peerConnection.current) {
         try {
-          await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
-        } catch (e) { console.error(e); }
+          if (peerConnection.current.remoteDescription && peerConnection.current.remoteDescription.type) {
+            await peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+          } else {
+            setTimeout(() => {
+              if (peerConnection.current?.remoteDescription) {
+                peerConnection.current.addIceCandidate(new RTCIceCandidate(candidate));
+              }
+            }, 1000);
+          }
+        } catch (e) { console.error("ICE Error:", e); }
       }
     });
 
@@ -194,10 +221,10 @@ const VideoCallPage = () => {
   };
 
   return (
-    <div className="flex flex-col fixed inset-0 bg-base-100 overflow-hidden z-[9999]">
+    <div className="flex flex-col fixed inset-0 bg-base-100 overflow-hidden z-9999">
       <main className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
         <div className="relative bg-neutral rounded-2xl overflow-hidden h-full">
-          <video ref={remoteVideoRef} className="w-full h-full object-cover bg-black" autoPlay playsInline />
+          <video ref={remoteVideoRef} className="w-full h-full object-cover bg-black overflow-hidden z-9999 " autoPlay playsInline />
           <div className="absolute bottom-4 left-4">
             <span className="badge badge-neutral bg-black/50 text-white px-3 py-3 font-medium">
               {selectedUser?.username}
@@ -218,7 +245,7 @@ const VideoCallPage = () => {
           ) : (
             <video 
               ref={localVideoRef} 
-              className={`w-full h-full object-cover bg-black ${facingMode === "user" ? "scale-x-[-1]" : ""}`} 
+              className={`w-full h-full object-cover bg-black ${facingMode === "user" ? "scale-x-[-1]" : ""} ${isVideoOff ? "hidden" : "block"}`}
               autoPlay muted playsInline 
             />
           )}
