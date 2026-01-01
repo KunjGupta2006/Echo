@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, Video, VideoOff, PhoneOff } from 'lucide-react';
+import { Mic, MicOff, Video, VideoOff, PhoneOff, FlipHorizontal } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useChatStore } from '../store/useChatStore.js';
 import { useAuthStore } from '../store/useAuthStore.js';
@@ -12,6 +12,7 @@ const VideoCallPage = () => {
 
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [facingMode, setFacingMode] = useState("user");
   const [localStream, setLocalStream] = useState(null);
 
   const localVideoRef = useRef(null);
@@ -31,7 +32,6 @@ const VideoCallPage = () => {
       peerConnection.current = null;
     }
     setLocalStream(null);
-    return;
   };
 
   const initPeerConnection = () => {
@@ -57,10 +57,51 @@ const VideoCallPage = () => {
 
     peerConnection.current.ontrack = (event) => {
       if (remoteVideoRef.current) {
-        remoteVideoRef.current.srcObject = event.streams[0] || new MediaStream([event.track]);
+        remoteVideoRef.current.srcObject = event.streams[0];
       }
     };
   };
+
+  const enableStream = async () => {
+    try {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: {
+          width: { ideal: 640 }, 
+          height: { ideal: 480 },
+          facingMode: facingMode
+        }, 
+        audio: true 
+      });
+
+      streamRef.current = stream;
+      setLocalStream(stream);
+
+      if (localVideoRef.current) {
+        localVideoRef.current.srcObject = stream;
+        localVideoRef.current.onloadedmetadata = () => {
+          localVideoRef.current.play().catch(() => {});
+        };
+      }
+
+      if (peerConnection.current) {
+        const videoTrack = stream.getVideoTracks()[0];
+        const sender = peerConnection.current.getSenders().find(s => s.track?.kind === 'video');
+        if (sender) sender.replaceTrack(videoTrack);
+      }
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedUser) { navigate("/"); return; }
+    enableStream();
+    return () => killMedia();
+  }, [selectedUser, facingMode]);
 
   const startCall = async () => {
     initPeerConnection();
@@ -76,41 +117,13 @@ const VideoCallPage = () => {
   };
 
   useEffect(() => {
-    if (!selectedUser) { navigate("/"); return; }
-
-    const enableStream = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
-        video: {
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
-          facingMode: "user" // for the selfie camera
-        }, 
-        audio: true 
-      });
-        // const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-        setLocalStream(stream);
-        streamRef.current = stream;
-        if (localVideoRef.current) localVideoRef.current.srcObject = stream;
-      } catch (error) {
-        console.error(error);
-      }
-    };
-
-    enableStream();
-    return () => killMedia();
-  }, [selectedUser]);
-
-  useEffect(() => {
     if (!localStream || !socket || !roomId) return;
 
     socket.emit('join-room', roomId);
     socket.emit('ready', roomId);
 
     socket.on('ready', () => {
-      if (location.state?.type === "caller") {
-        startCall();
-      }
+      if (location.state?.type === "caller") startCall();
     });
 
     socket.on('offer', async (offer) => {
@@ -144,29 +157,19 @@ const VideoCallPage = () => {
       killMedia();
       navigate("/");
     });
-    socket.on('call-rejected', () => {
-      alert("Call declined by user");
-      killMedia();
-      navigate("/");
-    });
 
-  return () => {
-  socket.off('ready');
-  socket.off('offer');
-  socket.off('answer');
-  socket.off('ice-candidate');
-  socket.off('end-call');
-  socket.off('call-rejected');
+    return () => {
+      socket.off('ready');
+      socket.off('offer');
+      socket.off('answer');
+      socket.off('ice-candidate');
+      socket.off('end-call');
     };
   }, [localStream, socket, roomId]);
 
-  // FIX: This useEffect ensures the video stream is re-attached 
-  // to the video element whenever the camera is toggled back on.
-  useEffect(() => {
-    if (!isVideoOff && streamRef.current && localVideoRef.current) {
-      localVideoRef.current.srcObject = streamRef.current;
-    }
-  }, [isVideoOff]);
+  const toggleCamera = () => {
+    setFacingMode(prev => prev === "user" ? "environment" : "user");
+  };
 
   const toggleMute = () => {
     if (streamRef.current) {
@@ -191,13 +194,13 @@ const VideoCallPage = () => {
   };
 
   return (
-    <div className="flex flex-col absolute top-24 h-3/4 w-full bg-base-100 overflow-hidden">
-      <main className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 h-full overflow-hidden">
+    <div className="flex flex-col fixed inset-0 bg-base-100 overflow-hidden z-[9999]">
+      <main className="p-4 grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
         <div className="relative bg-neutral rounded-2xl overflow-hidden h-full">
           <video ref={remoteVideoRef} className="w-full h-full object-cover bg-black" autoPlay playsInline />
           <div className="absolute bottom-4 left-4">
             <span className="badge badge-neutral bg-black/50 text-white px-3 py-3 font-medium">
-              {selectedUser.username}
+              {selectedUser?.username}
             </span>
           </div>
         </div>
@@ -205,20 +208,18 @@ const VideoCallPage = () => {
         <div className="relative bg-neutral rounded-2xl overflow-hidden h-full">
           {isVideoOff ? (
             <div className="flex flex-col items-center justify-center h-full bg-base-200">
-               <div className="avatar">
-                 <div className="w-24 rounded-full ring ring-primary ring-offset-base-100 ring-offset-2">
-                   <img src={authUser.profilePic} alt="Me" />
-                 </div>
-               </div>
-               <p className="mt-4 text-sm font-medium opacity-50">Camera Off</p>
+              <div className="avatar">
+                <div className="w-24 rounded-full ring ring-primary">
+                  <img src={authUser?.profilePic} alt="Me" />
+                </div>
+              </div>
+              <p className="mt-4 text-sm font-medium opacity-50">Camera Off</p>
             </div>
           ) : (
             <video 
               ref={localVideoRef} 
-              className="w-full h-full object-cover scale-x-[-1] bg-black" 
-              autoPlay 
-              muted 
-              playsInline 
+              className={`w-full h-full object-cover bg-black ${facingMode === "user" ? "scale-x-[-1]" : ""}`} 
+              autoPlay muted playsInline 
             />
           )}
           <div className="absolute bottom-4 left-4">
@@ -227,14 +228,17 @@ const VideoCallPage = () => {
         </div>
       </main>
 
-      <footer className="h-24 flex items-center justify-center gap-6 bg-base-100 border-t border-white/5">
-        <button onClick={toggleMute} className={`btn btn-circle btn-md transition-all ${isMuted ? 'btn-error' : 'btn-neutral'}`}>
+      <footer className="h-24 flex items-center justify-center gap-4 bg-base-100 border-t border-white/5">
+        <button onClick={toggleMute} className={`btn btn-circle btn-md ${isMuted ? 'btn-error' : 'btn-neutral'}`}>
           {isMuted ? <MicOff size={20} /> : <Mic size={20} />}
         </button>
-        <button onClick={endCall} className="btn btn-circle btn-error btn-lg shadow-xl hover:scale-105 transition-transform">
+        <button onClick={toggleCamera} className="btn btn-circle btn-neutral btn-md">
+          <FlipHorizontal size={20} />
+        </button>
+        <button onClick={endCall} className="btn btn-circle btn-error btn-lg shadow-xl hover:scale-105">
           <PhoneOff size={28} />
         </button>
-        <button onClick={toggleVideo} className={`btn btn-circle btn-md transition-all ${isVideoOff ? 'btn-error' : 'btn-neutral'}`}>
+        <button onClick={toggleVideo} className={`btn btn-circle btn-md ${isVideoOff ? 'btn-error' : 'btn-neutral'}`}>
           {isVideoOff ? <VideoOff size={20} /> : <Video size={20} />}
         </button>
       </footer>
